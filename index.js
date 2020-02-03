@@ -1,34 +1,35 @@
 const fs = require("fs");
 const request = require("request");
-const CSV = fs.createReadStream("./sample_data.csv");
-const readline = require("readline");
 const Papa = require("papaparse");
+const CSV = fs.createReadStream(process.argv[2]);
 const _progress = require("cli-progress");
 
-const amountToDownload = 2500;
+const amountToDownload = 250;
 const image_size = "1000";
 
-Papa.parse(CSV, {
-  download: true,
-
-  // Header creates the key:value tags rather than one large object, providing more organization
-  header: true,
-  complete: function(results) {
-    const fileName = "convertedJSON.json";
-    // Saves the converted CSV file to JSON
-    fs.writeFile(fileName, JSON.stringify(results.data), function(err) {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log(
-          "Success! Your converted JSON file is saved under the name: " +
-            fileName
-        );
-        gatherUrls(results.data);
-      }
-    });
-  }
-});
+const convertCSV = (CSV) => {
+    Papa.parse(CSV, {
+        download: true,
+      
+        // Header creates the key:value tags rather than one large object, providing more organization
+        header: true,
+        complete: function(results) {
+          const fileName = "convertedCSV.json";
+          // Saves the converted CSV file to JSON
+          fs.writeFile(fileName, JSON.stringify(results.data), function(err) {
+            if (err) {
+              console.log(err);
+            } else {
+              console.log(
+                "Success! Your converted JSON file is saved under the name: " +
+                  fileName
+              );
+              gatherUrls(results.data);
+            }
+          });
+        }
+      });
+}
 
 const gatherUrls = (data) => {
   console.log("Gathering image urls, please wait...");
@@ -87,3 +88,5 @@ const requestImage = (sku, url, poolOptions) =>
         resolve("Finished downloading image of SKU" + sku);
       });
   });
+
+convertCSV(CSV);
