@@ -4,7 +4,7 @@ const CSV = fs.createReadStream("./sample_data.csv");
 const Papa = require("papaparse");
 const _progress = require("cli-progress");
 
-const amountToDownload = 1500;
+const amountToDownload = 2500;
 
 Papa.parse(CSV, {
   download: true,
@@ -48,14 +48,20 @@ const gatherUrls = data => {
 const downloadImages = async (url, sku) => {
   const b1 = new _progress.Bar({}, _progress.Presets.shades_grey);
   let promises = [];
+  let poolOptions = {maxSockets: 15};
   b1.start(amountToDownload, 0);
   let value = 0; // value of the progress bar
+
   for (let i = 0; i < amountToDownload; i++) {
     promises.push(
-      requestImage(sku[i], url[i]).then(() => {
-        value++;
-        b1.update(value);
-      })
+      requestImage(sku[i], url[i], poolOptions)
+        .then(() => {
+          value++;
+          b1.update(value);
+        })
+        .catch(err => {
+          console.log("There has been an error with the image of SKU: " + sku[i]);
+        })
     );
   }
   await Promise.all(promises);
@@ -63,17 +69,15 @@ const downloadImages = async (url, sku) => {
   console.log("Success! All images have finished downloading");
 };
 
-const requestImage = (sku, url) =>
+const requestImage = (sku, url, poolOptions) =>
   new Promise((resolve, reject) => {
     const options = {
-      uri: url,
-      pool: { maxsockets: 5 },
-      forever: true
-    };
-
+        uri: url,
+        pool: poolOptions,
+      };
     request(options)
       .on("error", function(err) {
-        console.log(url);
+        reject("The image of SKU " + sku + " could not download");
       })
       .pipe(fs.createWriteStream("images/" + sku + ".jpg"))
       .on("finish", () => {
