@@ -1,12 +1,13 @@
-const fs = require("fs");
+const fs = require("graceful-fs");
 const request = require("request");
 const Papa = require("papaparse");
-const CSV = fs.createReadStream(process.argv[2]);
 const _progress = require("cli-progress");
 const _colors = require("colors");
+const FileQueue = require('filequeue');
 
-const amountToDownload = 250;
+const fq = new FileQueue(1000);
 const image_size = "1000";
+const CSV = fq.createReadStream(process.argv[2]);
 
 const convertCSV = (CSV) => {
     Papa.parse(CSV, {
@@ -17,7 +18,7 @@ const convertCSV = (CSV) => {
         complete: function(results) {
           const fileName = "convertedCSV.json";
           // Saves the converted CSV file to JSON
-          fs.writeFile(fileName, JSON.stringify(results.data), function(err) {
+          fq.writeFile(fileName, JSON.stringify(results.data), function(err) {
             if (err) {
               console.log(err);
             } else {
@@ -41,7 +42,7 @@ const gatherUrls = (data) => {
     sku.push(data[i]["SKU"]);
   }
   console.log(
-    "All image urls have been gathered and increased the download size to " +
+    "All image urls have been gathered and the download size has been increased to " +
       image_size +
       "."
   );
@@ -53,11 +54,11 @@ const downloadImages = async (url, sku, dataSize) => {
     format: 'Image Download Progress |' + _colors.cyan('{bar}') + '| {percentage}% | {value}/{total} Images',
     barCompleteChar: '\u2588',
     barIncompleteChar: '\u2591',
-    barsize: 500,
+    barsize: 50,
     hideCursor: true
   }, _progress.Presets.shades_classic);
   let promises = [];
-  let poolOptions = { maxSockets: 15 };
+  let poolOptions = { maxSockets: 50 };
   b1.start(dataSize, 0);
   let value = 0; // value of the progress bar
   fs.promises.mkdir("./images/", { recursive: true }).catch(console.error)
@@ -78,7 +79,7 @@ const downloadImages = async (url, sku, dataSize) => {
   }
   await Promise.all(promises);
   b1.stop();
-  console.log("Success! All images have finished downloading");
+  console.log("Success! All images have finished downloading.");
 };
 
 const requestImage = (sku, url, poolOptions) =>
@@ -91,9 +92,9 @@ const requestImage = (sku, url, poolOptions) =>
       .on("error", function(err) {
         reject("The image of SKU " + sku + " could not download");
       })
-      .pipe(fs.createWriteStream("./images/" + sku + ".jpg"))
+      .pipe(fq.createWriteStream("./images/" + sku + ".jpg"))
       .on("finish", () => {
-        resolve("Finished downloading image of SKU" + sku);
+        resolve("Finished downloading image of SKU" + sku + ".");
       });
   });
 
